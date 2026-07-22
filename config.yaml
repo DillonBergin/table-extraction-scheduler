@@ -10,9 +10,9 @@ properties:
     type: string
     description: Which extraction Add-On to dispatch documents to.
     enum:
-      - azure_table
-      - textract_table
-    default: azure_table
+      - azure
+      - textract
+    default: azure
 
   batch_size:
     title: Batch Size
