@@ -48,8 +48,19 @@ PAGE_RANGE_EXTRACTORS = {"azure", "textract"}
 # set by the scheduler itself rather than relying on each downstream
 # Add-On to write back its own completion field, since that's not
 # something we can confirm from the outside for all three extractors.
+#
+# IMPORTANT: DocumentCloud auto-prefixes custom metadata keys with
+# "data_" to make them searchable -- e.g. setting doc.data["extractor_
+# azure"] = "queued" makes it searchable as data_extractor_azure:*.
+# This function returns the BARE key (no "data_") for use with
+# doc.data[...] / doc.data.get(...). Use search_field() below to get
+# the data_-prefixed name for DocumentCloud search queries.
 def dedup_field(extractor):
-    return f"data_extractor_{extractor}"
+    return f"extractor_{extractor}"
+
+
+def search_field(extractor):
+    return f"data_{dedup_field(extractor)}"
 
 
 class ExtractorScheduler(AddOn):
@@ -74,7 +85,7 @@ class ExtractorScheduler(AddOn):
             # Scheduled runs: re-run the same saved search each time,
             # so newly-matching documents get picked up automatically.
             documents = self.client.documents.search(
-                f"({self.query}) -{field}:* +status:success"
+                f"({self.query}) -{search_field(extractor)}:* +status:success"
             )
             batch = list(islice(documents, 0, batch_size))
         else:
