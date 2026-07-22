@@ -1,29 +1,55 @@
-# The title is the title of your Add-On
-title: Hello World
-# The description will be shown above the form when activating the Add-On
-description: This is an updated simple test add-on
-# Optional instructions field to describe how to use the Add-On
-instructions: This is a sample instruction.
-# Top level type should always be object
+# The config.yaml format is a JSON Schema document in YAML format
+# https://github.com/MuckRock/documentcloud-hello-world-addon/wiki
+
+title: Extractor Scheduler
+description: >
+  Run a data extraction Add-On (Azure Table Extractor or Textract Table
+  Extractor) on a project of documents on a schedule, in batches,
+  skipping documents that have already been run.
 type: object
-# How does this add-on accept documents
-# If more than one type is specified, the user will be prompted to choose one
+
+# This add-on determines its own document set from project_id below,
+# so the built-in selector isn't used to scope documents -- it's
+# required by the schema, but "query" keeps it out of your way.
 documents:
-  # By the currently selected documents
-  - selected
-  # By the current search query
-  - query
-# Properties are the fields for your form
+  type: query
+
 properties:
-  # the key is the name of the variable that will be returned to your code
-  name:
-    # the title is what will be shown as the form label
-    title: Name
-    # a string is text
+  project_id:
+    title: Project ID
     type: string
-# Categories are what type of Add-On this is. Used to sort the Add-On in the Add-On menu. 
-categories: 
-  - file
-# Acceptable categories are premium, ai, export, bulk, file,  monitor, statistical, and extraction. 
-# You can read more about DocumentCloud Add-On categories here: https://www.documentcloud.org/help/add-ons#types-of-add-ons
-version: 2
+    description: >
+      The numeric ID of the DocumentCloud project to pull documents from
+      (found in the project's URL).
+
+  extractor:
+    title: Extractor
+    type: string
+    description: Which extraction Add-On to dispatch documents to.
+    enum:
+      - azure_table
+      - textract_table
+      # gpt4_vision omitted for now -- not yet registered as a
+      # DocumentCloud add-on (no numeric id). Add it back to this
+      # enum, and to EXTRACTOR_RUN_IDS/EXTRACTOR_PARAMS in main.py,
+      # once it's confirmed via the addons API.
+    default: azure_table
+
+  batch_size:
+    title: Batch Size
+    type: number
+    description: Number of documents to dispatch per run.
+    default: 25
+    minimum: 1
+
+required:
+  - project_id
+  - extractor
+  - batch_size
+
+# Lets this be run on a recurring schedule from DocumentCloud, same as
+# the original OCR Scheduler add-on.
+eventOptions:
+  - hourly
+  - daily
+  - weekly
