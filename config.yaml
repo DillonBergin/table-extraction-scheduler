@@ -1,27 +1,10 @@
-# The config.yaml format is a JSON Schema document in YAML format
-# https://github.com/MuckRock/documentcloud-hello-world-addon/wiki
-
 title: Extractor Scheduler
-description: >
-  Run a data extraction Add-On (Azure Table Extractor or Textract Table
-  Extractor) on a project of documents on a schedule, in batches,
-  skipping documents that have already been run.
+description: Run a data extraction Add-On (Azure Table Extractor or Textract Table Extractor) on a project of documents on a schedule, in batches.
 type: object
-
-# This add-on determines its own document set from project_id below,
-# so the built-in selector isn't used to scope documents -- it's
-# required by the schema, but "query" keeps it out of your way.
 documents:
-  type: query
-
+  - selected
+  - query
 properties:
-  project_id:
-    title: Project ID
-    type: string
-    description: >
-      The numeric ID of the DocumentCloud project to pull documents from
-      (found in the project's URL).
-
   extractor:
     title: Extractor
     type: string
@@ -29,27 +12,22 @@ properties:
     enum:
       - azure_table
       - textract_table
-      # gpt4_vision omitted for now -- not yet registered as a
-      # DocumentCloud add-on (no numeric id). Add it back to this
-      # enum, and to EXTRACTOR_RUN_IDS/EXTRACTOR_PARAMS in main.py,
-      # once it's confirmed via the addons API.
     default: azure_table
 
   batch_size:
     title: Batch Size
-    type: number
+    type: integer
     description: Number of documents to dispatch per run.
     default: 25
-    minimum: 1
-
 required:
-  - project_id
   - extractor
   - batch_size
-
-# Lets this be run on a recurring schedule from DocumentCloud, same as
-# the original OCR Scheduler add-on.
 eventOptions:
-  - hourly
-  - daily
-  - weekly
+  name: extractor_scheduler
+  events:
+    - hourly
+    - daily
+    - weekly
+categories: 
+  - extract
+version: 2
