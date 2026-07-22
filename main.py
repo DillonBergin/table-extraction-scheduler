@@ -12,12 +12,8 @@ from documentcloud.addon import AddOn
 # TODO: fill in real run IDs as confirmed via
 # GET https://api.www.documentcloud.org/api/addons/?query=<name>
 EXTRACTOR_RUN_IDS = {
-    "azure_table": 875,  # MuckRock/azure-table-extractor
-    "textract_table": 877,  # MuckRock/textract-table-extractor-add-on
-    # "gpt4_vision": ...  # not yet registered as a DocumentCloud add-on --
-    # no numeric id exists until the GitHub App is installed on that repo
-    # and it shows up via the addons API. Add back here (and to
-    # EXTRACTOR_PARAMS below, and to config.yaml's enum) once confirmed.
+    "azure": 875,  # MuckRock/azure-table-extractor
+    "textract": 877,  # MuckRock/textract-table-extractor-add-on
 }
 
 # Confirmed via GET https://api.www.documentcloud.org/api/addons/?query=<name>
@@ -32,20 +28,20 @@ EXTRACTOR_RUN_IDS = {
 # end_page is filled in per-document below using the document's actual
 # page count, since it varies doc to doc.
 EXTRACTOR_PARAMS = {
-    "azure_table": {
+    "azure": {
         "start_page": 1,
-        "output_format": "csv",
+        "output_format": "json",
     },
-    "textract_table": {
+    "textract": {
         "start_page": 1,
-        "output_format": "csv",
+        "output_format": "csv",  # Textract's schema has no "json" option
     },
 }
 
 # Extractors whose config takes a start_page/end_page range. For these,
 # end_page is set per-document from the document's own page count
 # rather than a single shared value across the batch.
-PAGE_RANGE_EXTRACTORS = {"azure_table", "textract_table"}
+PAGE_RANGE_EXTRACTORS = {"azure", "textract"}
 
 # Tag written onto each document as it's queued, so re-runs of this
 # scheduler skip documents already sent to a given extractor. This is
@@ -61,7 +57,6 @@ class ExtractorScheduler(AddOn):
     Add-On, skipping documents already queued for that extractor."""
 
     def main(self):
-        project_id = self.data.get("project_id")
         extractor = self.data.get("extractor")
         batch_size = int(self.data.get("batch_size", 25))
 
@@ -75,10 +70,20 @@ class ExtractorScheduler(AddOn):
 
         field = dedup_field(extractor)
 
-        documents = self.client.documents.search(
-            f"+project:{project_id} -{field}:* +status:success"
-        )
-        batch = list(islice(documents, 0, batch_size))
+        if self.query:
+            # Scheduled runs: re-run the same saved search each time,
+            # so newly-matching documents get picked up automatically.
+            documents = self.client.documents.search(
+                f"({self.query}) -{field}:* +status:success"
+            )
+            batch = list(islice(documents, 0, batch_size))
+        else:
+            # One-off runs against a fixed document selection.
+            batch = [
+                doc
+                for doc in islice(self.get_documents(), 0, batch_size)
+                if not doc.data.get(field)
+            ]
 
         if not batch:
             self.set_message(f"No documents left to queue for {extractor}.")
